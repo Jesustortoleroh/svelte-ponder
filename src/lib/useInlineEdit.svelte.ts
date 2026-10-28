@@ -2,27 +2,39 @@ export function useInlineEdit<T extends Record<string, any>>(
   initial: T,
   onSave: (value: T) => Promise<void> | void
 ) {
+  // initial is a plain object, so structuredClone is fine here
   let draft = $state<T>(structuredClone(initial));
   let original = $state<T>(structuredClone(initial));
 
-  // Using JSON.stringify to compare objects for changes. This is a simple way to check for deep equality, but it may not be the most efficient for large objects or objects with circular references. Consider using a deep comparison library if performance becomes an issue.
-  const isDirty = $derived(
-    JSON.stringify(draft) !== JSON.stringify(original)
-  );
+  // Use a function to ensure it re-evaluates on every call
+  function getIsDirty() {
+    return JSON.stringify(draft) !== JSON.stringify(original);
+  }
 
   async function save() {
-    await onSave(structuredClone(draft));
-    Object.assign(original, structuredClone(draft));
+    // CRITICAL: Use $state.snapshot to clone the proxy safely
+    const nextValue = $state.snapshot(draft) as T;
+    await onSave(nextValue);
+
+    // Update original using snapshot to avoid proxy cloning errors
+    Object.assign(original, nextValue);
   }
 
   function cancel() {
-    Object.assign(draft, structuredClone(original));
+    // Revert draft using snapshot
+    Object.assign(draft, $state.snapshot(original));
   }
 
   function reset(newValue: T) {
-    Object.assign(draft, structuredClone(newValue));
-    Object.assign(original, structuredClone(newValue));
+    Object.assign(draft, $state.snapshot(newValue));
+    Object.assign(original, $state.snapshot(newValue));
   }
 
-  return { draft, isDirty, save, cancel, reset };
+  return {
+    draft,
+    isDirty: getIsDirty, // Return the function itself
+    save,
+    cancel,
+    reset
+  };
 }

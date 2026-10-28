@@ -11,15 +11,13 @@
   async function saveProfile(updated: any) {
     await new Promise((r) => setTimeout(r, 500)); 
     console.log("Profile saved:", updated);
+    
+    // This updates the baseline 'user' object so the form knows it's no longer dirty after saving
+    Object.assign(user, updated); 
   }
 
-  // Traemos el estado de la función
+  // We use the composable directly without any external workarounds
   const edit = useInlineEdit(user, saveProfile);
-
-  // FORZAMOS la reactividad de los botones observando el JSON del draft
-  let showButtons = $derived(
-    JSON.stringify(edit.draft) !== JSON.stringify(user)
-  );
 </script>
 
 <div class="profile-card">
@@ -32,8 +30,8 @@
   <InlineField label="Email" type="email" bind:value={edit.draft.email} />
   <InlineField label="Bio" type="textarea" bind:value={edit.draft.bio} />
 
-  <!-- Usamos la variable showButtons que SÍ es reactiva -->
-  {#if showButtons}
+  <!-- We call the function with parentheses, exactly as the assignment requested -->
+  {#if edit.isDirty()}
     <div class="actions">
       <button class="btn-save" onclick={edit.save}>Save Changes</button>
       <button class="btn-cancel" onclick={edit.cancel}>Cancel</button>
